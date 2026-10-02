@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using StudentRosterApi.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
@@ -5,6 +8,10 @@ builder.Services.AddControllers();
 // Swagger services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Register DbContext with SQLite provider
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite("Data Source=studentroster.db"));
 
 var app = builder.Build();
 

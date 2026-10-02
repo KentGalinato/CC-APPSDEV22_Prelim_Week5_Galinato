@@ -1,5 +1,6 @@
-
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudentRosterApi.Data;
 using StudentRosterApi.Models;
 
 namespace StudentRosterApi.Controllers
@@ -8,107 +9,61 @@ namespace StudentRosterApi.Controllers
     [Route("api/[controller]")]
     public class StudentsController : ControllerBase
     {
-        private static List<Student> students = new List<Student>
+        private readonly AppDbContext _context;
+
+        // Inject DbContext via Constructor
+        public StudentsController(AppDbContext context)
         {
-            new Student
-            {
-                Id = 1,
-                FirstName = "Juan",
-                LastName = "Dela Cruz",
-                Course = "BSCS",
-                Email = "juan@gmail.com",
-                YearLevel = 3
-            },
-            new Student
-            {
-                Id = 2,
-                FirstName = "Maria",
-                LastName = "Clara",
-                Course = "BSIT",
-                Email = "maria@gmail.com",
-                YearLevel = 2
-            }
-        };
+            _context = context;
+        }
 
         // GET: api/students
         [HttpGet]
-        public IActionResult GetAllStudents()
+        public async Task<IActionResult> GetAllStudents()
         {
+            var students = await _context.Students.ToListAsync();
             return Ok(students);
         }
 
         // GET: api/students/5
         [HttpGet("{id}")]
-        public IActionResult GetStudentById(int id)
+        public async Task<IActionResult> GetStudentById(int id)
         {
-            var student = students.FirstOrDefault(s => s.Id == id);
+            var student = await _context.Students.FindAsync(id);
 
             if (student == null)
             {
-                return NotFound(new
-                {
-                    message = $"Student with ID {id} not found."
-                });
+                return NotFound(new { message = $"Student with ID {id} not found." });
             }
 
             return Ok(student);
         }
 
-        // GET: api/students/course/BSCS
-        [HttpGet("course/{courseName}")]
-        public IActionResult GetStudentsByCourse(string courseName)
-        {
-            var filtered = students
-                .Where(s => s.Course.Equals(
-                    courseName,
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            return Ok(filtered);
-        }
-
         // POST: api/students
         [HttpPost]
-        public IActionResult CreateStudent([FromBody] Student newStudent)
+        public async Task<IActionResult> CreateStudent([FromBody] Student newStudent)
         {
-            if (string.IsNullOrWhiteSpace(newStudent.FirstName) ||
-                string.IsNullOrWhiteSpace(newStudent.LastName))
+            if (string.IsNullOrWhiteSpace(newStudent.FirstName) || string.IsNullOrWhiteSpace(newStudent.LastName))
             {
-                return BadRequest(new
-                {
-                    message = "First name and last name are required."
-                });
+                return BadRequest(new { message = "First name and last name are required." });
             }
 
-            newStudent.Id = students.Any()
-                ? students.Max(s => s.Id) + 1
-                : 1;
+            _context.Students.Add(newStudent);
+            await _context.SaveChangesAsync(); // Saves to database
 
-            students.Add(newStudent);
-
-            return CreatedAtAction(
-                nameof(GetStudentById),
-                new { id = newStudent.Id },
-                newStudent);
+            return CreatedAtAction(nameof(GetStudentById), new { id = newStudent.Id }, newStudent);
         }
 
         // PUT: api/students/5
         [HttpPut("{id}")]
-        public IActionResult UpdateStudent(
-            int id,
-            [FromBody] Student updatedStudent)
+        public async Task<IActionResult> UpdateStudent(int id, [FromBody] Student updatedStudent)
         {
             if (id != updatedStudent.Id)
             {
-                return BadRequest(new
-                {
-                    message = "ID mismatch."
-                });
+                return BadRequest(new { message = "ID mismatch." });
             }
 
-            var existingStudent = students.FirstOrDefault(
-                s => s.Id == id);
-
+            var existingStudent = await _context.Students.FindAsync(id);
             if (existingStudent == null)
             {
                 return NotFound();
@@ -117,26 +72,38 @@ namespace StudentRosterApi.Controllers
             existingStudent.FirstName = updatedStudent.FirstName;
             existingStudent.LastName = updatedStudent.LastName;
             existingStudent.Course = updatedStudent.Course;
-            existingStudent.Email = updatedStudent.Email;
             existingStudent.YearLevel = updatedStudent.YearLevel;
+            existingStudent.Email = updatedStudent.Email;
+
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
         // DELETE: api/students/5
         [HttpDelete("{id}")]
-        public IActionResult DeleteStudent(int id)
+        public async Task<IActionResult> DeleteStudent(int id)
         {
-            var student = students.FirstOrDefault(s => s.Id == id);
-
+            var student = await _context.Students.FindAsync(id);
             if (student == null)
             {
                 return NotFound();
             }
 
-            students.Remove(student);
+            _context.Students.Remove(student);
+            await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        [HttpGet("course/{courseName}")]
+        public async Task<IActionResult> GetStudentsByCourse(string courseName)
+        {
+            var students = await _context.Students
+                .Where(s => s.Course.Equals(courseName, StringComparison.OrdinalIgnoreCase))
+                .ToListAsync();
+
+            return Ok(students);
         }
     }
 }
