@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+studentroster.db-shm
+studentroster.db-wal
